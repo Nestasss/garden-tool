@@ -1,15 +1,20 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from config import TELEGRAM_BOT_TOKEN
-from database import init_db
+from database import init_db, add_user
 from roles import can_create_task, can_send_to_chat
 from utils import get_main_menu_keyboard, get_task_type_keyboard, get_additional_params_keyboard, get_send_target_keyboard
+from calendar_integration import create_calendar_event
+import json
 
 # Глобальное состояние для сбора данных задачи
 active_tasks = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    # Пример: добавляем пользователя как "worker", если его нет
+    add_user(user.id, user.full_name, "worker")
+
     await update.message.reply_html(
         f"Привет, {user.mention_html()}! Это бот для управления задачами по уходу за растениями.",
         reply_markup=get_main_menu_keyboard(),
@@ -54,7 +59,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith("send_"):
         target = data.replace("send_", "")
-        await query.edit_message_text(text=f"Задача отправлена {target}.")
+        task = active_tasks.get(user_id, {})
+
+        # Если есть дата и время — создаём событие в календаре
+        if "datetime" in task and "location" in task:
+            try:
+                link = create_calendar_event(
+                    summary=task["type"],
+                    location=task["location"],
+                    start_time=task["datetime"],
+                    end_time=task["datetime"]  # или +1 час, если нужно
+                )
+                await query.edit_message_text(f"Задача отправлена {target} и добавлена в календарь: {link}")
+            except Exception as e:
+                await query.edit_message_text(f"Ошибка при добавлении в календарь: {e}")
+        else:
+            await query.edit_message_text(f"Задача отправлена {target}.")
 
 # Запуск бота
 if __name__ == "__main__":
