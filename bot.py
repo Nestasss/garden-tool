@@ -31,6 +31,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("У вас нет прав для создания задач.")
 
+    # Если пользователь вводит место (после выбора типа)
+    elif user_id in active_tasks and "type" in active_tasks[user_id] and "location" not in active_tasks[user_id]:
+        active_tasks[user_id]["location"] = text
+        await update.message.reply_text("Укажите дату и время (ДД.ММ.ГГГГ ЧЧ:ММ):")
+
+    # Если пользователь вводит дату и время
+    elif user_id in active_tasks and "location" in active_tasks[user_id] and "datetime" not in active_tasks[user_id]:
+        # Можно добавить проверку формата даты, если нужно
+        active_tasks[user_id]["datetime"] = text
+        await update.message.reply_text("Прикрепите фото (опционально) или нажмите 'Пропустить'.")
+
     elif text == "📢 В общий чат":
         if can_send_to_chat(user_id):
             await context.bot.send_message(chat_id=-1001234567890, text="Сообщение от озеленителя!")  # ID чата
